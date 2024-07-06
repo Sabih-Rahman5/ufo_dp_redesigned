@@ -38,20 +38,13 @@ class Status:
     EVALUATION = "EVALUATION"
 
 
+
 class StatusToStateMapper:
     """
     A class to map the status to the appropriate state.
     """
-
-    # Singleton instance
-    _instance = None
-
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-        return cls._instance
-
     def __init__(self):
+        # removed singleton pattern logic, now it is a normal class
         self.STATE_MAPPING = StatusToStateMapper.create_state_mapping()
 
     @staticmethod
@@ -75,6 +68,7 @@ class StatusToStateMapper:
         """
         state = self.STATE_MAPPING.get(status, NoneState)
         return state()
+
 
 
 class SessionState(ABC):

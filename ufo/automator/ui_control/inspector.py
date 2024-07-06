@@ -15,41 +15,41 @@ from ufo.config.config import Config
 configs = Config.get_instance().config_data
 
 
-class BackendFactory:
+class BackendHandler:
     """
-    A factory class to create backend strategies.
+    A handler class to manage backend operations.
     """
 
-    @staticmethod
-    def create_backend(backend: str) -> BackendStrategy:
+    def __init__(self, backend: str):
         """
-        Create a backend strategy.
-        :param backend: The backend to use.
-        :return: The backend strategy.
+        Initialize the handler with the specified backend.
+        :param backend: The backend to use ("uia" or "win32").
         """
-        if backend == "uia":
-            return UIABackendStrategy()
-        elif backend == "win32":
-            return Win32BackendStrategy()
-        else:
+        if backend not in ["uia", "win32"]:
             raise ValueError(f"Backend {backend} not supported")
+        self.backend = backend
 
-
-class BackendStrategy(ABC):
-    """
-    Define an interface for backend strategies.
-    """
-
-    @abstractmethod
     def get_desktop_windows(self, remove_empty: bool) -> List[UIAWrapper]:
         """
         Get all the apps on the desktop.
         :param remove_empty: Whether to remove empty titles.
         :return: The apps on the desktop.
         """
-        pass
+        if self.backend == "uia":
+            desktop_windows = Desktop(backend="uia").windows()
+        else:
+            desktop_windows = Desktop(backend="win32").windows()
+            desktop_windows = [app for app in desktop_windows if app.is_visible()]
 
-    @abstractmethod
+        if remove_empty:
+            desktop_windows = [
+                app
+                for app in desktop_windows
+                if app.window_text() != ""
+                and app.element_info.class_name not in ["IME", "MSCTFIME UI"]
+            ]
+        return desktop_windows
+
     def find_control_elements_in_descendants(
         self,
         window: UIAWrapper,
@@ -71,68 +71,33 @@ class BackendStrategy(ABC):
         :param depth: The depth of the descendants to find.
         :return: The control elements found.
         """
-
-        pass
-
-
-class UIABackendStrategy(BackendStrategy):
-    """
-    The backend strategy for UIA.
-    """
-
-    def get_desktop_windows(self, remove_empty: bool) -> List[UIAWrapper]:
-        """
-        Get all the apps on the desktop.
-        :param remove_empty: Whether to remove empty titles.
-        :return: The apps on the desktop.
-        """
-        desktop_windows = Desktop(backend="uia").windows()
-        if remove_empty:
-            desktop_windows = [
-                app
-                for app in desktop_windows
-                if app.window_text() != ""
-                and app.element_info.class_name not in ["IME", "MSCTFIME UI"]
-            ]
-        return desktop_windows
-
-    def find_control_elements_in_descendants(
-        self,
-        window: UIAWrapper,
-        control_type_list: List[str] = [],
-        class_name_list: List[str] = [],
-        title_list: List[str] = [],
-        is_visible: bool = True,
-        is_enabled: bool = True,
-        depth: int = 0,
-    ) -> List[UIAWrapper]:
-        """
-        Find control elements in descendants of the window for uia backend.
-        :param window: The window to find control elements.
-        :param control_type_list: The control types to find.
-        :param class_name_list: The class names to find.
-        :param title_list: The titles to find.
-        :param is_visible: Whether the control elements are visible.
-        :param is_enabled: Whether the control elements are enabled.
-        :param depth: The depth of the descendants to find.
-        :return: The control elements found.
-        """
-
-        if window == None:
+        if window is None:
             return []
 
         control_elements = []
-        if len(control_type_list) == 0:
+        if len(control_type_list) == 0 and len(class_name_list) == 0:
             control_elements += window.descendants()
         else:
-            for control_type in control_type_list:
-                if depth == 0:
-                    subcontrols = window.descendants(control_type=control_type)
-                else:
-                    subcontrols = window.descendants(
-                        control_type=control_type, depth=depth
-                    )
-                control_elements += subcontrols
+            if self.backend == "uia":
+                if len(control_type_list) > 0:
+                    for control_type in control_type_list:
+                        if depth == 0:
+                            subcontrols = window.descendants(control_type=control_type)
+                        else:
+                            subcontrols = window.descendants(
+                                control_type=control_type, depth=depth
+                            )
+                        control_elements += subcontrols
+            else:
+                if len(class_name_list) > 0:
+                    for class_name in class_name_list:
+                        if depth == 0:
+                            subcontrols = window.descendants(class_name=class_name)
+                        else:
+                            subcontrols = window.descendants(
+                                class_name=class_name, depth=depth
+                            )
+                        control_elements += subcontrols
 
         if is_visible:
             control_elements = [
@@ -148,100 +113,23 @@ class UIABackendStrategy(BackendStrategy):
                 for control in control_elements
                 if control.window_text() in title_list
             ]
-        if len(class_name_list) > 0:
-            control_elements = [
-                control
-                for control in control_elements
-                if control.element_info.class_name in class_name_list
-            ]
+        if self.backend == "uia":
+            if len(class_name_list) > 0:
+                control_elements = [
+                    control
+                    for control in control_elements
+                    if control.element_info.class_name in class_name_list
+                ]
+        else:
+            if len(control_type_list) > 0:
+                control_elements = [
+                    control
+                    for control in control_elements
+                    if control.element_info.control_type in control_type_list
+                ]
 
         return control_elements
 
-
-class Win32BackendStrategy(BackendStrategy):
-    """
-    The backend strategy for Win32.
-    """
-
-    def get_desktop_windows(self, remove_empty: bool) -> List[UIAWrapper]:
-        """
-        Get all the apps on the desktop.
-        :param remove_empty: Whether to remove empty titles.
-        :return: The apps on the desktop.
-        """
-
-        desktop_windows = Desktop(backend="win32").windows()
-        desktop_windows = [app for app in desktop_windows if app.is_visible()]
-
-        if remove_empty:
-            desktop_windows = [
-                app
-                for app in desktop_windows
-                if app.window_text() != ""
-                and app.element_info.class_name not in ["IME", "MSCTFIME UI"]
-            ]
-        return desktop_windows
-
-    def find_control_elements_in_descendants(
-        self,
-        window: UIAWrapper,
-        control_type_list: List[str] = [],
-        class_name_list: List[str] = [],
-        title_list: List[str] = [],
-        is_visible: bool = True,
-        is_enabled: bool = True,
-        depth: int = 0,
-    ) -> List[UIAWrapper]:
-        """
-        Find control elements in descendants of the window for win32 backend.
-        :param window: The window to find control elements.
-        :param control_type_list: The control types to find.
-        :param class_name_list: The class names to find.
-        :param title_list: The titles to find.
-        :param is_visible: Whether the control elements are visible.
-        :param is_enabled: Whether the control elements are enabled.
-        :param depth: The depth of the descendants to find.
-        :return: The control elements found.
-        """
-
-        if window == None:
-            return []
-
-        control_elements = []
-        if len(class_name_list) == 0:
-            control_elements += window.descendants()
-        else:
-            for class_name in class_name_list:
-                if depth == 0:
-                    subcontrols = window.descendants(class_name=class_name)
-                else:
-                    subcontrols = window.descendants(class_name=class_name, depth=depth)
-                control_elements += subcontrols
-
-        if is_visible:
-            control_elements = [
-                control for control in control_elements if control.is_visible()
-            ]
-        if is_enabled:
-            control_elements = [
-                control for control in control_elements if control.is_enabled()
-            ]
-        if len(title_list) > 0:
-            control_elements = [
-                control
-                for control in control_elements
-                if control.window_text() in title_list
-            ]
-        if len(control_type_list) > 0:
-            control_elements = [
-                control
-                for control in control_elements
-                if control.element_info.control_type in control_type_list
-            ]
-
-        return [
-            control for control in control_elements if control.element_info.name != ""
-        ]
 
 
 class ControlInspectorFacade:
