@@ -1,0 +1,37 @@
+# Ignore login file
+*.bin
+
+# Ignore Jupyter Notebook checkpoints
+.ipynb_checkpoints
+/test/*
+/deprecated/*
+/test/*.ipynb
+/logs/*
+/ufo/modules/*
+/ufo/agents/*
+__pycache__/
+**/__pycache__/
+*.pyc
+*.ipynb
+/.VSCodeCounter
+
+# Ignore the config file
+ufo/config/config.yaml
+ufo/config/config_llm.yaml
+
+
+# Ignore the helper files
+ufo/rag/app_docs/*
+learner/records.json
+vectordb/docs/*
+vectordb/experience/*
+vectordb/demonstration/*
+
+# Ignore the data files
+tasks/*
+
+# Don't ignore the example files
+!vectordb/docs/example/
+!vectordb/demonstration/example.yaml
+
+.vscode
