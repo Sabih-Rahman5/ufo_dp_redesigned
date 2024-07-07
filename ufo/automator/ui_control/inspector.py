@@ -15,7 +15,7 @@ from ufo.config.config import Config
 configs = Config.get_instance().config_data
 
 
-class BackendHandler:
+class BackendHandler(ABC):
     """
     A handler class to manage backend operations.
     """
